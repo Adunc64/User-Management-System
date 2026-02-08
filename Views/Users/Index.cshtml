@@ -1,0 +1,194 @@
+@model List<task.Models.User>
+@using task.Models
+
+@{
+    ViewData["Title"] = "User Management";
+}
+
+<h1 class="h3 mb-3">User Management</h1>
+
+@if (TempData["Msg"] != null)
+{
+    <div class="alert alert-success">@TempData["Msg"]</div>
+}
+
+<form id="bulkForm" method="post">
+
+    <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+
+        <button class="btn btn-outline-danger" type="submit" formaction="/Users/Block"
+                id="btnBlock" disabled>
+            Block
+        </button>
+
+        <button class="btn btn-outline-success" type="submit" formaction="/Users/Unblock"
+                id="btnUnblock" disabled data-bs-toggle="tooltip" title="Unblock selected users">
+            <i class="bi bi-unlock"></i>
+        </button>
+
+        <!-- Delete Selected (intercepted by JS confirm) -->
+        <button class="btn btn-outline-dark" type="submit"
+                id="btnDelete" disabled data-bs-toggle="tooltip" title="Delete selected users">
+            <i class="bi bi-trash"></i>
+        </button>
+
+        <!-- Delete Unverified (intercepted by JS confirm) -->
+        <button class="btn btn-outline-secondary" type="submit"
+                id="btnDeleteUnverified" data-bs-toggle="tooltip" title="Delete all unverified users">
+            <i class="bi bi-person-x"></i>
+        </button>
+
+        <span class="ms-2 text-muted" id="selectionHint">Select users to enable actions</span>
+    </div>
+
+    <!-- Inline confirm box (no browser popup) -->
+    <div id="confirmBox" class="alert alert-warning d-none" role="alert">
+        <div class="d-flex justify-content-between align-items-center">
+            <div id="confirmText" class="me-3"></div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-dark" id="confirmYes">Yes</button>
+                <button type="button" class="btn btn-sm btn-outline-dark" id="confirmNo">No</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:40px;">
+                            <input type="checkbox" id="selectAll" />
+                        </th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th style="width:200px;">Last Login</th>
+                        <th style="width:140px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var u in Model)
+                {
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="ids" value="@u.Id" class="rowCheck" />
+                        </td>
+                        <td class="fw-semibold">@u.Username</td>
+                        <td>@u.Email</td>
+                        <td class="text-muted">
+                            @(u.LastLoginTime.HasValue
+                                ? u.LastLoginTime.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                : "Never")
+                        </td>
+                        <td>
+                            @if (u.Status == task.Models.User.UserStatus.Active)
+                            {
+                                <span class="badge bg-success">Active</span>
+                            }
+                            else if (u.Status == task.Models.User.UserStatus.Blocked)
+                            {
+                                <span class="badge bg-danger">Blocked</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark">Unverified</span>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</form>
+
+<script>
+    // Required by assignment: getUniqIdValue
+    function getUniqIdValue() {
+        return Array.from(document.querySelectorAll(".rowCheck:checked"))
+            .map(cb => parseInt(cb.value))
+            .filter(n => !isNaN(n));
+    }
+
+    const form = document.getElementById("bulkForm");
+
+    const selectAll = document.getElementById("selectAll");
+    const hint = document.getElementById("selectionHint");
+
+    const btnBlock = document.getElementById("btnBlock");
+    const btnUnblock = document.getElementById("btnUnblock");
+    const btnDelete = document.getElementById("btnDelete");
+    const btnDeleteUnverified = document.getElementById("btnDeleteUnverified");
+
+    // Inline confirm UI (no browser popup)
+    const confirmBox = document.getElementById("confirmBox");
+    const confirmText = document.getElementById("confirmText");
+    const confirmYes = document.getElementById("confirmYes");
+    const confirmNo = document.getElementById("confirmNo");
+    let pendingAction = null;
+
+    function showConfirm(message, actionUrl) {
+        pendingAction = actionUrl;
+        confirmText.textContent = message;
+        confirmBox.classList.remove("d-none");
+    }
+
+    function hideConfirm() {
+        pendingAction = null;
+        confirmBox.classList.add("d-none");
+    }
+
+    function updateButtons() {
+        const ids = getUniqIdValue();
+        const any = ids.length > 0;
+
+        btnBlock.disabled = !any;
+        btnUnblock.disabled = !any;
+        btnDelete.disabled = !any;
+
+        hint.textContent = any ? `${ids.length} selected` : "Select users to enable actions";
+    }
+
+    // Select all toggle
+    selectAll.addEventListener("change", () => {
+        document.querySelectorAll(".rowCheck").forEach(cb => cb.checked = selectAll.checked);
+        updateButtons();
+    });
+
+    // Row checkbox change
+    document.addEventListener("change", (e) => {
+        if (!e.target.classList.contains("rowCheck")) return;
+
+        const all = Array.from(document.querySelectorAll(".rowCheck"));
+        selectAll.checked = all.length > 0 && all.every(c => c.checked);
+        updateButtons();
+    });
+
+    // Intercept Delete Selected to show inline confirm
+    btnDelete.addEventListener("click", (e) => {
+        if (btnDelete.disabled) return;
+        e.preventDefault();
+        showConfirm("Delete selected users? This cannot be undone.", "/Users/Delete");
+    });
+
+    // Intercept Delete Unverified to show inline confirm
+    btnDeleteUnverified.addEventListener("click", (e) => {
+        e.preventDefault();
+        showConfirm("Delete ALL unverified users? This cannot be undone.", "/Users/DeleteUnverified");
+    });
+
+    confirmYes.addEventListener("click", () => {
+        if (!pendingAction) return;
+        form.action = pendingAction;
+        form.submit();
+    });
+
+    confirmNo.addEventListener("click", hideConfirm);
+
+    // Enable tooltips (Bootstrap)
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+        new bootstrap.Tooltip(el);
+    });
+
+    updateButtons();
+</script>
