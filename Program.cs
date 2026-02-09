@@ -36,6 +36,13 @@ builder.Services.AddSingleton<IEmailSender, ConsoleEmailSender>();
 
 var app = builder.Build();
 
+if (!app.Environment.IsDevelopment())
+{
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+    app.Urls.Clear();
+    app.Urls.Add($"http://0.0.0.0:{port}");
+}
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<task.Data.AppDbContext>();
