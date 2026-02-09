@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using System.Security.Claims;
+using Npgsql;
+using Microsoft.Extensions.Logging;
+
 
 using task.Data;
 using task.Models;
@@ -16,11 +19,13 @@ namespace task.Controllers
     {
         private readonly AppDbContext _db;
         private readonly IEmailSender _email;
+        private readonly ILogger<AccountController> _logger;
 
-        public AccountController(AppDbContext db, IEmailSender email)
+        public AccountController(AppDbContext db, IEmailSender email, ILogger<AccountController> logger)
         {
             _db = db;
             _email = email;
+            _logger = logger;
         }
 
         [HttpGet] //Register page
@@ -67,9 +72,18 @@ namespace task.Controllers
             {
                 await _db.SaveChangesAsync();
             }
-            catch (DbUpdateException)
+            catch (DbUpdateException ex)
             {
-                ModelState.AddModelError(nameof(regvm.Email), "This email is already registered.");
+                // Postgres unique-constraint violation => "already registered"
+                if (ex.InnerException is PostgresException pg && pg.SqlState == "23505")
+                {
+                    ModelState.AddModelError(nameof(regvm.Email), "This email is already registered.");
+                    return View(regvm);
+                }
+
+                // Anything else => show a general error (and log the real reason)
+                _logger.LogError(ex, "Registration failed while saving user.");
+                ModelState.AddModelError("", "Registration failed due to a server error. Please try again.");
                 return View(regvm);
             }
 
