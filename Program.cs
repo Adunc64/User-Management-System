@@ -12,16 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<AppDbContext>(options =>
-{
-    if (builder.Environment.IsDevelopment())
-    {
-        options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"));
-    }
-    else
-    {
-        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
-    }
-});
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 //registering cookie authentication
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
