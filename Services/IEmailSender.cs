@@ -2,6 +2,7 @@ namespace task.Services
 {
     public interface IEmailSender
     {
-        Task SendAsync(string toEmail, string subject, string body);
+        // Task SendAsync(string toEmail, string subject, string body);
+        Task<string> SendVerificationAsync(string toEmail, string verifyLink);
     }
 }

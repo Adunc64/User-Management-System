@@ -47,6 +47,7 @@ namespace task.Controllers
             }
 
             var token = TokenGenerator.CreateToken();
+
             var user = new User
             {
                 Email = email,
@@ -61,32 +62,39 @@ namespace task.Controllers
             };
 
             _db.Users.Add(user);
+
             try
             {
                 await _db.SaveChangesAsync();
-                var verifyLink = Url.Action(
-                    action: "VerifyEmail",
-                    controller: "Account",
-                    values: new { userId = user.Id, token = token },
-                    protocol: Request.Scheme
-                );
-                // Send mail
-                await _email.SendAsync(
-                    toEmail: user.Email,
-                    subject: "Verify your email",
-                    body: $"Click to verify: {verifyLink}"
-                );
             }
             catch (DbUpdateException)
             {
-                // If two users register same email at same time, unique index triggers here
                 ModelState.AddModelError(nameof(regvm.Email), "This email is already registered.");
                 return View(regvm);
             }
 
-            TempData["SuccessMessage"] = "Registration successful! Please log in.";
-            return RedirectToAction("Login");
+            var verifyLink = Url.Action(
+                action: "VerifyEmail",
+                controller: "Account",
+                values: new { userId = user.Id, token = token },
+                protocol: Request.Scheme
+            );
+
+            // // In local dev, you can still log/send to console if you want
+            // if (HttpContext.RequestServices.GetService(typeof(IWebHostEnvironment)) is IWebHostEnvironment env
+            //     && env.IsDevelopment())
+            // {
+            //     await _email.SendAsync(
+            //         toEmail: user.Email,
+            //         subject: "Verify your email",
+            //         body: $"Click to verify: {verifyLink}"
+            //     );
+            // }
+
+            // Show a page with the verification link (works on deployed app too)
+            return View("ShowVerifyLink", verifyLink);
         }
+
 
         [HttpGet] //Email verification 
         public async Task<IActionResult> VerifyEmail(int userId, string token)

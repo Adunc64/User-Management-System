@@ -5,15 +5,10 @@ namespace task.Services
 {
     public class ConsoleEmailSender : IEmailSender
     {
-        public Task SendAsync(string toEmail, string subject, string body)
+        public Task<string> SendVerificationAsync(string toEmail, string verifyLink)
         {
-            Console.WriteLine("=== Simulated Email Sending ===");
-            Console.WriteLine($"To: {toEmail}");
-            Console.WriteLine($"Subject: {subject}");
-            Console.WriteLine("Body:");
-            Console.WriteLine(body);
-            Console.WriteLine("=== End of Simulated Email ===");
-            return Task.CompletedTask;
+            Console.WriteLine($"Verify {toEmail}: {verifyLink}");
+            return Task.FromResult(verifyLink);
         }
     }
 }
